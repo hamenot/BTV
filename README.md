@@ -133,6 +133,20 @@ cp local.properties.template local.properties
 
 ---
 
+## 致谢
+
+本项目的实现建立在以下项目之上，在此致谢：
+
+| 项目 | 说明 |
+| --- | --- |
+| [Frost819/newBV](https://github.com/Frost819/newBV) | 本项目源自 newBV —— BV 的重构 |
+| [aaa1115910/bv](https://github.com/aaa1115910/bv) | 本项目最上游仓库 |
+| [cat3399/blbl](https://github.com/cat3399/blbl) | 部分实现（弹幕分段加载等）参考 / 移植自该项目 |
+| [KwaiAppTeam/AkDanmaku](https://github.com/KwaiAppTeam/AkDanmaku) | 弹幕渲染引擎（快手开源，MIT；经 [Frost819 fork](https://github.com/Frost819/AkDanmaku) 1.0.4 收编进 `danmaku-engine/`） |
+| [hanydd/BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) | 小电视空降助手（空降片段数据与跳过逻辑） |
+
+---
+
 ## 许可证与免责声明
 
 - 基于 [BV](https://github.com/aaa1115910/bv) 重构，遵循 **MIT License**，详见 [LICENSE](./LICENSE)。
