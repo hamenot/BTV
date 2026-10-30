@@ -1,0 +1,230 @@
+@file:Suppress("UnstableApiUsage")
+
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.google.ksp)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.hilt)
+}
+
+val localProperties = Properties()
+localProperties.apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
+val signingPropertiesFile = rootProject.file("signing.properties")
+val signingProperties = Properties()
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.inputStream().use { signingProperties.load(it) }
+}
+
+android {
+    namespace = AppConfiguration.appId
+    compileSdk = AppConfiguration.compileSdk
+
+    signingConfigs {
+        if (signingPropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(signingProperties.getProperty("releaseStoreFile"))
+                storePassword = signingProperties.getProperty("releaseStorePassword")
+                keyAlias = signingProperties.getProperty("releaseKeyAlias")
+                keyPassword = signingProperties.getProperty("releaseKeyPassword")
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId = AppConfiguration.applicationId
+        minSdk = AppConfiguration.minSdk
+        targetSdk = AppConfiguration.targetSdk
+        versionCode = AppConfiguration.versionCode
+        versionName = AppConfiguration.versionName
+
+        testInstrumentationRunner = "dev.frost819.newbv.app.CustomTestRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+
+        buildConfigField(
+            "String",
+            "CRASH_REPORT_TOKEN",
+            "\"${localProperties.getProperty("crashReport.token", "")}\"",
+        )
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            if (signingPropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+        debug {
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
+            // DEBUG 只保留 x86_64：用于 1080p TV 模拟器联调，减少打包时间与安装包体积。
+            // release 不限制 ABI，仍可覆盖 arm64-v8a / armeabi-v7a 真机。
+            ndk {
+                abiFilters.clear()
+                abiFilters += "x86_64"
+            }
+        }
+    }
+
+    androidComponents {
+        onVariants { variant ->
+            variant.outputs.forEach { output ->
+                if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
+                    output.outputFileName.set(
+                        "BTV_${AppConfiguration.versionCode}_${AppConfiguration.versionName}_${variant.name}.apk",
+                    )
+                }
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
+    packaging {
+        resources {
+            // Protobuf source files and desktop-only Jansi natives are not used at runtime on Android.
+            excludes +=
+                listOf(
+                    "**/*.proto",
+                    "/META-INF/native-image/jansi/**",
+                    "/org/fusesource/jansi/internal/native/**",
+                )
+        }
+    }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+dependencies {
+    // === Project modules ===
+    implementation(project(":bili-api"))
+    implementation(project(":bili-subtitle"))
+    implementation(project(":player"))
+    implementation(project(":danmaku"))
+    implementation(project(":core"))
+    implementation(project(":data"))
+
+    // === AndroidX Core ===
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.material)
+
+    // === Lifecycle ===
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // === Navigation ===
+    implementation(libs.androidx.navigation.compose)
+
+    // === DataStore ===
+    implementation(libs.androidx.datastore)
+    implementation(libs.androidx.datastore.preferences)
+
+    // === Room ===
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // === Compose ===
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons)
+    implementation(libs.androidx.compose.tv.foundation)
+    implementation(libs.androidx.compose.tv.material)
+    debugImplementation(platform(libs.androidx.compose.bom))
+    debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // === Hilt ===
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
+
+    // === Media3 ===
+    implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.datasource.okhttp)
+    implementation(libs.androidx.media3.exoplayer.dash)
+    implementation(libs.androidx.media3.exoplayer.hls)
+
+    // === Image loading (Coil 3) ===
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+
+    // === Networking ===
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.client.encoding)
+    implementation(libs.ktor.client.serialization.kotlinx)
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.cio)
+    implementation(libs.okhttp)
+    implementation(libs.okio)
+
+    // === Kotlin ===
+    implementation(libs.kotlinx.coroutines)
+    implementation(libs.kotlinx.serialization)
+
+    // === Other ===
+    implementation(project(":danmaku-engine"))
+    implementation(libs.androidsvg)
+    implementation(libs.qrcode)
+    debugImplementation(libs.leakcanary)
+
+    // === Testing ===
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.mockk)
+    testImplementation(libs.turbine)
+    testImplementation(libs.truth)
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.truth)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.compiler)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+}

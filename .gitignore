@@ -1,0 +1,65 @@
+# ========================================
+# Build outputs
+# ========================================
+/build/
+/*/build/
+**/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+/app/release/
+
+# Gradle
+.gradle/
+.gradle-cache/
+.kotlin/
+gradle-app.setting
+
+# ========================================
+# IDE
+# ========================================
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# ========================================
+# OS
+# ========================================
+.DS_Store
+Thumbs.db
+
+# ========================================
+# Credentials & secrets (do not commit)
+# ========================================
+# B 站测试凭证 / SDK 路径
+local.properties
+/local.properties
+# 签名配置（含密钥库密码）
+signing.properties
+*.keystore
+*.jks
+# 崩溃上报端点配置
+crash-report.properties
+
+# ========================================
+# Logs
+# ========================================
+*.log
+logs/
+hprof/
+
+# ========================================
+# Agent 工作区（本地调试截图、日志、记忆，不入库）
+# ========================================
+.workbuddy/
+
+# ========================================
+# Read-only reference (原版 BV 源码，不纳入版本控制)
+# ========================================
+/bv/
+.playwright-mcp/
+
+# B 站 API 参考文档（第三方，不纳入版本控制）
+/docs/bilibili-API-collect-master/

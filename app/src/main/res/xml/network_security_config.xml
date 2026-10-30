@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  生产（release）网络安全配置。
+
+  三条约束，改动前请先读完：
+
+  1. **只信任系统 CA**。绝不信任用户安装的证书——Android 上任何「抓包工具」都会往
+     用户证书区装一张根证书，一旦信任它，SESSDATA / access_token 就能被明文解出。
+     调试构建在 `src/debug/res/xml/network_security_config.xml` 里单独放开，不要把
+     `src="user"` 加回本文件。
+
+  2. **接口域名强制 HTTPS**。B 站 Web/App 接口全部是 https，凭证只走 TLS。
+     这条 domain-config 覆盖 www/api/app/passport/live/space/search 等所有子域。
+
+  3. **基础配置仍允许 cleartext**。视频流地址由服务端动态下发，包含
+     `*.mcdn.bilivideo.*`、`*.szbdyd.com` 以及 IP 直连形式，无法在编译期穷举；
+     若在此处一律禁止明文，部分视频会直接播不出来（CLEARTEXT_NOT_PERMITTED）。
+     播放链路的完整性由「只信任系统 CA」+ 播放器侧主机名校验共同保证。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">bilibili.com</domain>
+        <domain includeSubdomains="true">biliapi.net</domain>
+    </domain-config>
+</network-security-config>

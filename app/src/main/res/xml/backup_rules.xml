@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  云备份排除规则（API 30 及以下，对应清单 `android:fullBackupContent`）。
+
+  清单已设 `android:allowBackup="false"`，正常情况下这些规则不会生效；
+  保留它们是为了「万一有人把 allowBackup 改回 true」时不至于把登录凭证一起备份出去。
+
+  为什么必须排除：SESSDATA / bili_jct / access_token 明文存放在
+  DataStore（`files/datastore/Settings.preferences_pb`）与 Room 的 `user.auth` 字段里，
+  一旦进入云备份，等于把 B 站账号交给备份服务商和任何能读到备份的人。
+-->
+<full-backup-content>
+    <!-- DataStore：全部偏好（含登录凭证、设备标识） -->
+    <exclude
+        domain="file"
+        path="datastore" />
+    <!-- Room：user 表存了 auth JSON（凭证），search_history 属于隐私 -->
+    <exclude
+        domain="database"
+        path="." />
+    <!-- 崩溃/手动日志：含请求 URL 与堆栈 -->
+    <exclude
+        domain="file"
+        path="crash_logs" />
+</full-backup-content>
