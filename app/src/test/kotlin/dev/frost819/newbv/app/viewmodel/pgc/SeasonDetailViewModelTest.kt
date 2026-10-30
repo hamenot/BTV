@@ -11,6 +11,7 @@ import dev.frost819.newbv.biliapi.entity.video.season.Episode
 import dev.frost819.newbv.biliapi.entity.video.season.PgcSeason
 import dev.frost819.newbv.biliapi.entity.video.season.SeasonDetail
 import dev.frost819.newbv.biliapi.entity.video.season.Section
+import dev.frost819.newbv.biliapi.repositories.AuthRepository
 import dev.frost819.newbv.biliapi.repositories.UserRepository
 import dev.frost819.newbv.biliapi.repositories.VideoDetailRepository
 import io.mockk.Runs
@@ -44,6 +45,7 @@ class SeasonDetailViewModelTest {
     private lateinit var videoDetailRepository: VideoDetailRepository
     private lateinit var userRepository: UserRepository
     private lateinit var videoInfoRepository: VideoInfoRepository
+    private lateinit var authRepository: AuthRepository
     private lateinit var sharedState: MutableStateFlow<VideoSharedState?>
     private lateinit var viewModel: SeasonDetailViewModel
 
@@ -53,6 +55,8 @@ class SeasonDetailViewModelTest {
         videoDetailRepository = mockk()
         userRepository = mockk()
         videoInfoRepository = mockk()
+        authRepository = mockk()
+        every { authRepository.hasValidSession() } returns true
         sharedState = MutableStateFlow(null)
         every { videoInfoRepository.videoSharedState } returns sharedState
         every { videoInfoRepository.updateVideoList(any()) } just Runs
@@ -69,6 +73,7 @@ class SeasonDetailViewModelTest {
             videoDetailRepository = videoDetailRepository,
             userRepository = userRepository,
             videoInfoRepository = videoInfoRepository,
+            authRepository = authRepository,
             savedStateHandle = savedStateHandle,
         )
     }
@@ -88,6 +93,7 @@ class SeasonDetailViewModelTest {
             videoDetailRepository = videoDetailRepository,
             userRepository = userRepository,
             videoInfoRepository = videoInfoRepository,
+            authRepository = authRepository,
             savedStateHandle = savedStateHandle,
         )
     }

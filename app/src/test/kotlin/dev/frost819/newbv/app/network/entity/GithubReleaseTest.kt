@@ -414,4 +414,61 @@ class GithubReleaseTest {
         assertThat(asset.state).isEqualTo("uploaded")
         assertThat(asset.url).isEqualTo("https://api.github.com/assets/555")
     }
+
+    // ── tvAsset 选包 ──────────────────────────────────────────────────
+
+    @Test
+    fun `tvAsset picks release apk`() {
+        val release =
+            releaseWithName("BTV_2_0.1Beta2").copy(
+                assets =
+                    listOf(
+                        asset("BTV_2_0.1Beta2_alpha.apk"),
+                        asset("BTV_2_0.1Beta2_release.apk"),
+                    ),
+            )
+
+        assertThat(release.tvAsset()?.name).isEqualTo("BTV_2_0.1Beta2_release.apk")
+    }
+
+    @Test
+    fun `tvAsset ignores non apk assets`() {
+        val release =
+            releaseWithName("BTV_2_0.1Beta2").copy(
+                assets =
+                    listOf(
+                        asset("mapping.txt"),
+                        asset("BTV_2_0.1Beta2_release.apk"),
+                    ),
+            )
+
+        assertThat(release.tvAsset()?.name).isEqualTo("BTV_2_0.1Beta2_release.apk")
+    }
+
+    @Test
+    fun `tvAsset falls back to alpha then any apk`() {
+        val alphaOnly = releaseWithName("BTV_3").copy(assets = listOf(asset("BTV_3_alpha.apk")))
+        assertThat(alphaOnly.tvAsset()?.name).isEqualTo("BTV_3_alpha.apk")
+
+        val other = releaseWithName("BTV_4").copy(assets = listOf(asset("app.apk")))
+        assertThat(other.tvAsset()?.name).isEqualTo("app.apk")
+    }
+
+    @Test
+    fun `tvAsset returns null when no apk asset`() {
+        val release = releaseWithName("BTV_5").copy(assets = listOf(asset("mapping.txt")))
+        assertThat(release.tvAsset()).isNull()
+    }
+
+    private fun asset(name: String) =
+        GithubRelease.Asset(
+            browserDownloadUrl = "https://github.com/test/test/releases/download/v1/$name",
+            contentType = "application/vnd.android.package-archive",
+            downloadCount = 1,
+            id = name.hashCode(),
+            name = name,
+            size = 1024,
+            state = "uploaded",
+            url = "https://api.github.com/assets/1",
+        )
 }

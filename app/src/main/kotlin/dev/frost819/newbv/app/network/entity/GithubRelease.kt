@@ -59,6 +59,25 @@ data class GithubRelease(
                 .trim()
 
     /**
+     * 挑出用于自动更新的 TV 版安装包。
+     *
+     * 发布包命名约定为 `BTV_<versionCode>_<versionName>_release.apk`
+     * （更早的版本用 `BV_` 前缀）。只接受 `.apk`，避免把映射文件、校验文件
+     * 当成安装包；同类中优先 `release`，其次 `alpha`，最后取任意 APK。
+     *
+     * 「检查更新」与「下载」都必须用本方法选包，否则两处判断规则不一致时
+     * 会出现「检查到更新，下载却报找不到安装包」。
+     *
+     * @return 匹配到的附件，没有可用 APK 时返回 `null`。
+     */
+    fun tvAsset(): Asset? {
+        val apks = assets.filter { it.name.endsWith(".apk", ignoreCase = true) }
+        return apks.firstOrNull { it.name.contains("release", ignoreCase = true) }
+            ?: apks.firstOrNull { it.name.contains("alpha", ignoreCase = true) }
+            ?: apks.firstOrNull()
+    }
+
+    /**
      * Release 附件（APK 文件等）。
      *
      * @property browserDownloadUrl 直链下载地址。

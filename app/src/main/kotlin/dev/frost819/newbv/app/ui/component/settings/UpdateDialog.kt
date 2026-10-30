@@ -36,6 +36,7 @@ import dev.frost819.newbv.app.util.ApkVerifier
 import dev.frost819.newbv.app.util.CacheManager
 import dev.frost819.newbv.core.focus.touchClickable
 import dev.frost819.newbv.core.log.Loggers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -47,6 +48,10 @@ import java.io.File
  *
  * 打开后自动检查最新版本，支持下载 APK 并调起安装。
  * 下载进度通过 [LinearProgressIndicator] 实时显示。
+ *
+ * 下载走 [dev.frost819.newbv.app.network.GithubApi.DOWNLOAD_MIRRORS] 线路链，
+ * 某条加速线路失效时会自动切换下一条；全部失败时把每条线路的失败原因
+ * 展示给用户（只有「下载失败」四个字，用户和开发者都无从判断是网络还是线路问题）。
  *
  * Android 8.0 及以上系统会按来源应用管控「安装未知应用」权限。若未授权，
  * 安装器会被系统静默拦截（[android.content.Context.startActivity] 不抛异常），
@@ -75,6 +80,8 @@ fun UpdateDialog(
     var latestRelease by remember { mutableStateOf<GithubRelease?>(null) }
     // 暂存已下载的 APK，用户授权后重试安装时无需重新下载
     var pendingInstallFile by remember { mutableStateOf<File?>(null) }
+    // 下载失败的线路诊断信息，直接展示给用户，避免只看到「下载失败」四个字
+    var downloadErrorMessage by remember { mutableStateOf("") }
 
     DisposableEffect(show) {
         if (!show) {
@@ -88,14 +95,23 @@ fun UpdateDialog(
     /**
      * 从 release 中挑出 TV 版发布包。
      *
-     * 用 firstOrNull 而不是 first：GitHub 未发布 release 或资产改名时，
-     * first 会抛 NoSuchElementException 直接崩掉设置页。
+     * 与下载时的选包规则共用 [GithubRelease.tvAsset]，避免两处规则不一致导致
+     * 「检查到更新但下载时找不到安装包」。返回可空类型而不是抛异常：
+     * GitHub 未发布 release 或资产改名时，这里抛异常会直接崩掉设置页。
      */
-    fun pickReleaseAsset(release: GithubRelease?) =
-        release?.assets?.firstOrNull { it.name.startsWith("BTV") && it.name.contains("release") }
+    fun pickReleaseAsset(release: GithubRelease?) = release?.tvAsset()
 
-    /** 从资产名解析 revision；命名格式不符时返回 null 而不是抛异常。 */
-    fun revisionOf(assetName: String): Int? = assetName.split("_").getOrNull(1)?.toIntOrNull()
+    /**
+     * 从资产名解析 versionCode。
+     *
+     * 命名约定 `BTV_<versionCode>_<versionName>_release.apk`，取第二段；
+     * 命名改过时退化为「第一个纯数字段」；都解析不出则返回 null 而不是抛异常。
+     */
+    fun revisionOf(assetName: String): Int? {
+        val segments = assetName.removeSuffix(".apk").split("_")
+        return segments.getOrNull(1)?.toIntOrNull()
+            ?: segments.firstNotNullOfOrNull { it.toIntOrNull() }
+    }
 
     val checkUpdate: () -> Unit = {
         updateStatus = UpdateStatus.UpdatingInfo
@@ -178,6 +194,7 @@ fun UpdateDialog(
 
     val startUpdate: () -> Unit = {
         updateStatus = UpdateStatus.Downloading
+        downloadErrorMessage = ""
         downloadJob =
             scope.launch(Dispatchers.IO) {
                 runCatching {
@@ -186,7 +203,8 @@ fun UpdateDialog(
                     val tempDir = File(context.cacheDir, "update_downloader")
                     if (!tempDir.exists()) tempDir.mkdirs()
                     val tempFile = File(tempDir, asset.name)
-                    tempFile.createNewFile()
+                    // 先清掉上次的残留：下载器先写 .part 再改名，残留文件一定是坏的
+                    tempFile.delete()
                     GithubApi.downloadUpdate(release!!, tempFile) { downloaded, total ->
                         // 进度回写主线程：回调在 IO 线程执行，直接写 Compose State 是跨线程写
                         scope.launch(Dispatchers.Main) {
@@ -204,8 +222,14 @@ fun UpdateDialog(
                     CacheManager(context).checkCache(preserve = tempFile)
                     if (show) withContext(Dispatchers.Main) { installUpdate(tempFile) }
                 }.onFailure {
+                    // 用户关闭弹窗会取消下载任务，取消不是「下载失败」，也不该再写状态
+                    if (it is CancellationException) return@onFailure
                     logger.error(it) { "Failed to download update" }
-                    withContext(Dispatchers.Main) { updateStatus = UpdateStatus.DownloadError }
+                    val reason = it.message ?: it::class.simpleName ?: "未知错误"
+                    withContext(Dispatchers.Main) {
+                        downloadErrorMessage = reason
+                        updateStatus = UpdateStatus.DownloadError
+                    }
                 }
             }
     }
@@ -271,7 +295,14 @@ fun UpdateDialog(
                     }
 
                     UpdateStatus.DownloadError -> {
-                        Text(text = "下载失败")
+                        Text(
+                            text =
+                                if (downloadErrorMessage.isBlank()) {
+                                    "下载失败"
+                                } else {
+                                    "下载失败：$downloadErrorMessage"
+                                },
+                        )
                     }
 
                     UpdateStatus.InstallError -> {
